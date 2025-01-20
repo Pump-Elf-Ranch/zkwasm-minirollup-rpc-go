@@ -30,7 +30,6 @@ func composeWithdrawParams(address string, amount int64) ([]int64, error) {
 	sndLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[4:12])).Int64()
 	thirdLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[12:20])).Int64()
 	one := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(firstLimb), 32), big.NewInt(amount))
-
 	return []int64{one.Int64(), sndLimb, thirdLimb}, nil
 }
 
@@ -111,10 +110,10 @@ func (pc *PlayerConvention) getNonce() (int, error) {
 	return nonce, nil
 }
 
-func (pc *PlayerConvention) Deposit(pid1, pid2, amount int) (int, error) {
+func (pc *PlayerConvention) Deposit(pid1, pid2, amount int) (string, error) {
 	nonce, err := pc.getNonce()
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	return pc.rpc.SendTransaction([4]uint64{
 		uint64(pc.createCommand(nonce, pc.commandDeposit, 0)),
@@ -124,14 +123,14 @@ func (pc *PlayerConvention) Deposit(pid1, pid2, amount int) (int, error) {
 	}, pc.processingKey)
 }
 
-func (pc *PlayerConvention) WithdrawRewards(address string, amount int64) (int, error) {
+func (pc *PlayerConvention) WithdrawRewards(address string, amount int64) (string, error) {
 	nonce, err := pc.getNonce()
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	params, err := composeWithdrawParams(address, amount)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	return pc.rpc.SendTransaction([4]uint64{
 		uint64(pc.createCommand(nonce, pc.commandWithdraw, 0)),

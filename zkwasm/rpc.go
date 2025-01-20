@@ -27,11 +27,6 @@ func (rpc *ZKWasmAppRpc) sendRawTransaction(cmd [4]uint64, prikey string) (map[s
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("jsonData:", string(jsonData))
-
-	fmt.Println(bytes.NewBuffer(jsonData))
-
 	resp, err := rpc.client.Post(fmt.Sprintf("%s/send", rpc.baseURL), "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
@@ -49,10 +44,10 @@ func (rpc *ZKWasmAppRpc) sendRawTransaction(cmd [4]uint64, prikey string) (map[s
 	return nil, errors.New("SendTransactionError")
 }
 
-func (rpc *ZKWasmAppRpc) SendTransaction(cmd [4]uint64, prikey string) (int, error) {
+func (rpc *ZKWasmAppRpc) SendTransaction(cmd [4]uint64, prikey string) (string, error) {
 	resp, err := rpc.sendRawTransaction(cmd, prikey)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	fmt.Println("resp:", resp)
 	for i := 0; i < 5; i++ {
@@ -61,16 +56,20 @@ func (rpc *ZKWasmAppRpc) SendTransaction(cmd [4]uint64, prikey string) (int, err
 		if err != nil {
 			continue
 		}
-		fmt.Println("jobStatus:", jobStatus)
 		if jobStatus != nil {
 			if _, ok := jobStatus["finishedOn"]; ok && jobStatus["failedReason"] == nil {
-				return int(jobStatus["returnvalue"].(float64)), nil
+				returnValue := jobStatus["returnvalue"].(map[string]interface{})
+				marshal, jsonErr := json.Marshal(returnValue)
+				if jsonErr != nil {
+					return "", jsonErr
+				}
+				return string(marshal), nil
 			} else if jobStatus["failedReason"] != nil {
-				return 0, errors.New(jobStatus["failedReason"].(string))
+				return "", errors.New(jobStatus["failedReason"].(string))
 			}
 		}
 	}
-	return 0, errors.New("MonitorTransactionFail")
+	return "", errors.New("MonitorTransactionFail")
 }
 
 func (rpc *ZKWasmAppRpc) QueryState(prikey string) (map[string]interface{}, error) {

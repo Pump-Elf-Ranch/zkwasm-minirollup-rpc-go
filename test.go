@@ -24,6 +24,7 @@ func main() {
 	nonce, _ := zkwamRpc.GetNonce(prikey)
 	cmd := zkwamRpc.CreateCommand(nonce, 11, 0)
 	fmt.Println("cmd:", cmd)
-	zkwamRpc.SendTransaction([4]uint64{cmd, 1, 1, 0}, prikey)
+	transaction, _ := zkwamRpc.SendTransaction([4]uint64{cmd, 1, 1, 0}, prikey)
+	fmt.Println("transaction:", transaction)
 
 }

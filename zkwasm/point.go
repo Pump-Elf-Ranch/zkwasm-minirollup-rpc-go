@@ -75,7 +75,6 @@ func (p *Point) String() string {
 }
 
 func PointBase() *Point {
-	// Use Constants["gX"] and Constants["gY"] as the base point coordinates
 	gX := Constants["gX"]
 	gY := Constants["gY"]
 	return NewPoint(gX, gY)

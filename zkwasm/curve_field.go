@@ -29,7 +29,7 @@ func NewCurveField(v interface{}) *CurveField {
 	case *big.Int:
 		value = v
 	default:
-		panic("v must be an int, string, or Field")
+		panic("v must be an int, string, uint64,int64, or Field")
 	}
 
 	value.Mod(value, modulus)
