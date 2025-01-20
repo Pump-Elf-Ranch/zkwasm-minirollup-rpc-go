@@ -71,14 +71,15 @@ func (l *LeHexInt) ToInt() *big.Int {
 }
 
 // Convert LeHexInt to a u64 array
-func (l *LeHexInt) ToU64Array() []uint64 {
+func (l *LeHexInt) ToU64Array() []*big.Int {
 	// Convert to integer first
 	num := l.ToInt()
 	// Split the big integer into 4 uint64 values
-	values := make([]uint64, 4)
+	values := make([]*big.Int, 4)
+	mask := new(big.Int).SetUint64(0xFFFFFFFFFFFFFFFF)
 	for i := 0; i < 4; i++ {
-		values[i] = num.Uint64() // Take the least significant 64 bits
-		num.Rsh(num, 64)         // Shift the number by 64 bits for the next value
+		values[i] = new(big.Int).And(num, mask) // Take the least significant 64 bits
+		num.Rsh(num, 64)                        // Shift the number by 64 bits for the next value
 	}
 	return values
 }
@@ -102,14 +103,14 @@ func VerifySign(msg *LeHexInt, pkx, pky, rx, ry *LeHexInt, s *LeHexInt) bool {
 }
 
 // Sign signs a command using a private key
-func Sign(cmd [4]uint64, prikey string) map[string]string {
+func Sign(cmd [4]*big.Int, prikey string) map[string]string {
 	pkey := PrivateKeyFromString(prikey)
 	r := pkey.R()
 	R := PointBase().Mul((*Field)(r))
-	bigCmd0 := big.NewInt(int64(cmd[0])) // cmd[0]
-	bigCmd1 := big.NewInt(int64(cmd[1])) // cmd[1]
-	bigCmd2 := big.NewInt(int64(cmd[2])) // cmd[2]
-	bigCmd3 := big.NewInt(int64(cmd[3])) // cmd[3]
+	bigCmd0 := cmd[0] // cmd[0]
+	bigCmd1 := cmd[1] // cmd[1]
+	bigCmd2 := cmd[2] // cmd[2]
+	bigCmd3 := cmd[3] // cmd[3]
 
 	// Shift the values by 64, 128, 192 bits
 	shifted1 := new(big.Int).Lsh(bigCmd1, 64)  // cmd[1] << 64
@@ -146,7 +147,7 @@ func Query(prikey string) map[string]string {
 }
 
 // GetPid retrieves the PID associated with a private key
-func GetPid(prikey string) (uint64, uint64) {
+func GetPid(prikey string) (*big.Int, *big.Int) {
 	pkey := PrivateKeyFromString(prikey)
 	pubkey := pkey.PublicKey()
 	pidKey := BnToHexLe(pubkey.key.x.v)

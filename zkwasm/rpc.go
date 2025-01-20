@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"time"
 )
@@ -21,7 +22,7 @@ func NewZKWasmAppRpc(baseURL string) *ZKWasmAppRpc {
 	}
 }
 
-func (rpc *ZKWasmAppRpc) sendRawTransaction(cmd [4]uint64, prikey string) (map[string]interface{}, error) {
+func (rpc *ZKWasmAppRpc) sendRawTransaction(cmd [4]*big.Int, prikey string) (map[string]interface{}, error) {
 	data := Sign(cmd, prikey)
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -44,7 +45,7 @@ func (rpc *ZKWasmAppRpc) sendRawTransaction(cmd [4]uint64, prikey string) (map[s
 	return nil, errors.New("SendTransactionError")
 }
 
-func (rpc *ZKWasmAppRpc) SendTransaction(cmd [4]uint64, prikey string) (string, error) {
+func (rpc *ZKWasmAppRpc) SendTransaction(cmd [4]*big.Int, prikey string) (string, error) {
 	resp, err := rpc.sendRawTransaction(cmd, prikey)
 	if err != nil {
 		return "", err
@@ -114,8 +115,12 @@ func (rpc *ZKWasmAppRpc) QueryConfig() (map[string]interface{}, error) {
 	return nil, errors.New("QueryConfigError")
 }
 
-func (rpc *ZKWasmAppRpc) CreateCommand(nonce, command, objindex uint64) uint64 {
-	return (nonce << 16) + (objindex << 8) + command
+func (rpc *ZKWasmAppRpc) CreateCommand(nonce, command, objindex *big.Int) *big.Int {
+	bigNonce0 := new(big.Int).Lsh(nonce, 16) // cmd[1] << 16
+	bigObj2 := new(big.Int).Lsh(objindex, 8) // cmd[3] << 0
+	cmd := new(big.Int).Add(bigNonce0, bigObj2)
+	cmd = cmd.Add(cmd, command)
+	return cmd
 }
 
 func (rpc *ZKWasmAppRpc) queryJobStatus(jobID string) (map[string]interface{}, error) {
@@ -136,18 +141,19 @@ func (rpc *ZKWasmAppRpc) queryJobStatus(jobID string) (map[string]interface{}, e
 	return nil, errors.New("QueryJobError")
 }
 
-func (rpc *ZKWasmAppRpc) GetNonce(prikey string) (uint64, error) {
+func (rpc *ZKWasmAppRpc) GetNonce(prikey string) (*big.Int, error) {
 	state, err := rpc.QueryState(prikey)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	var data map[string]interface{}
 	err = json.Unmarshal([]byte(state["data"].(string)), &data)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	player := data["player"].(map[string]interface{})
-	return uint64(player["nonce"].(float64)), nil
+	fmt.Println("player:", player)
+	return big.NewInt(int64(player["nonce"].(float64))), nil
 }

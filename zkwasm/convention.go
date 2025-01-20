@@ -21,16 +21,16 @@ func bytesToDecimal(bytes []byte) string {
 	return sb.String()
 }
 
-func composeWithdrawParams(address string, amount int64) ([]int64, error) {
+func composeWithdrawParams(address string, amount *big.Int) ([]*big.Int, error) {
 	addressBytes, err := hex.DecodeString(address)
 	if err != nil {
 		return nil, err
 	}
-	firstLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[:4])).Int64()
-	sndLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[4:12])).Int64()
-	thirdLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[12:20])).Int64()
-	one := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(firstLimb), 32), big.NewInt(amount))
-	return []int64{one.Int64(), sndLimb, thirdLimb}, nil
+	firstLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[:4]))
+	sndLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[4:12]))
+	thirdLimb := new(big.Int).SetBytes(reverseBytes(addressBytes[12:20]))
+	one := new(big.Int).Add(new(big.Int).Lsh(firstLimb, 32), amount)
+	return []*big.Int{one, sndLimb, thirdLimb}, nil
 }
 
 func decodeWithdraw(txdata []byte) ([]map[string]interface{}, error) {
@@ -65,11 +65,11 @@ func reverseBytes(bytes []byte) []byte {
 type PlayerConvention struct {
 	processingKey   string
 	rpc             *ZKWasmAppRpc
-	commandDeposit  int
-	commandWithdraw int
+	commandDeposit  *big.Int
+	commandWithdraw *big.Int
 }
 
-func NewPlayerConvention(key string, rpc *ZKWasmAppRpc, commandDeposit, commandWithdraw int) *PlayerConvention {
+func NewPlayerConvention(key string, rpc *ZKWasmAppRpc, commandDeposit, commandWithdraw *big.Int) *PlayerConvention {
 	return &PlayerConvention{
 		processingKey:   key,
 		rpc:             rpc,
@@ -78,8 +78,12 @@ func NewPlayerConvention(key string, rpc *ZKWasmAppRpc, commandDeposit, commandW
 	}
 }
 
-func (pc *PlayerConvention) createCommand(nonce, command, objindex int) int {
-	return (nonce << 16) + (objindex << 8) + command
+func (pc *PlayerConvention) createCommand(nonce, command, objindex *big.Int) *big.Int {
+	bigNonce0 := new(big.Int).Lsh(nonce, 16) // cmd[1] << 16
+	bigCmd0 := new(big.Int).Lsh(command, 8)  // cmd[2] << 8
+	cmd := new(big.Int).Add(bigNonce0, bigCmd0)
+	cmd = cmd.Add(cmd, objindex)
+	return cmd
 }
 
 func (pc *PlayerConvention) getConfig() (map[string]interface{}, error) {
@@ -98,32 +102,30 @@ func (pc *PlayerConvention) getState() (map[string]interface{}, error) {
 	return parsedState, nil
 }
 
-func (pc *PlayerConvention) getNonce() (int, error) {
+func (pc *PlayerConvention) getNonce() (*big.Int, error) {
 	data, err := pc.getState()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	nonce, err := strconv.Atoi(data["player"].(map[string]interface{})["nonce"].(string))
-	if err != nil {
-		return 0, err
-	}
+	player := data["player"].(map[string]interface{})
+	nonce := big.NewInt(int64(player["nonce"].(float64)))
 	return nonce, nil
 }
 
-func (pc *PlayerConvention) Deposit(pid1, pid2, amount int) (string, error) {
+func (pc *PlayerConvention) Deposit(pid1, pid2, amount *big.Int) (string, error) {
 	nonce, err := pc.getNonce()
 	if err != nil {
 		return "", err
 	}
-	return pc.rpc.SendTransaction([4]uint64{
-		uint64(pc.createCommand(nonce, pc.commandDeposit, 0)),
-		uint64(pid1),
-		uint64(pid2),
-		uint64(amount),
+	return pc.rpc.SendTransaction([4]*big.Int{
+		pc.createCommand(nonce, pc.commandDeposit, big.NewInt(0)),
+		pid1,
+		pid2,
+		amount,
 	}, pc.processingKey)
 }
 
-func (pc *PlayerConvention) WithdrawRewards(address string, amount int64) (string, error) {
+func (pc *PlayerConvention) WithdrawRewards(address string, amount *big.Int) (string, error) {
 	nonce, err := pc.getNonce()
 	if err != nil {
 		return "", err
@@ -132,10 +134,10 @@ func (pc *PlayerConvention) WithdrawRewards(address string, amount int64) (strin
 	if err != nil {
 		return "", err
 	}
-	return pc.rpc.SendTransaction([4]uint64{
-		uint64(pc.createCommand(nonce, pc.commandWithdraw, 0)),
-		uint64(int(params[0])),
-		uint64(int(params[1])),
-		uint64(int(params[2])),
+	return pc.rpc.SendTransaction([4]*big.Int{
+		pc.createCommand(nonce, pc.commandWithdraw, big.NewInt(0)),
+		params[0],
+		params[1],
+		params[2],
 	}, pc.processingKey)
 }
