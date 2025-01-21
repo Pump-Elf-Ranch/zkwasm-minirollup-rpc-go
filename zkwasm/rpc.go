@@ -144,16 +144,23 @@ func (rpc *ZKWasmAppRpc) queryJobStatus(jobID string) (map[string]interface{}, e
 func (rpc *ZKWasmAppRpc) GetNonce(prikey string) (*big.Int, error) {
 	state, err := rpc.QueryState(prikey)
 	if err != nil {
-		return nil, err
+		return big.NewInt(0), err
 	}
 
 	var data map[string]interface{}
 	err = json.Unmarshal([]byte(state["data"].(string)), &data)
 	if err != nil {
-		return nil, err
+		return big.NewInt(0), err
 	}
-
-	player := data["player"].(map[string]interface{})
-	fmt.Println("player:", player)
-	return big.NewInt(int64(player["nonce"].(float64))), nil
+	player, ok := data["player"]
+	if !ok {
+		fmt.Println("player field does not exist")
+		return big.NewInt(0), nil
+	} else if player == nil {
+		return big.NewInt(0), nil
+	} else {
+		playerMap := player.(map[string]interface{})
+		fmt.Println("player:", player)
+		return big.NewInt(int64(playerMap["nonce"].(float64))), nil
+	}
 }

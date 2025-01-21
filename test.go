@@ -18,8 +18,8 @@ func main() {
 	prikey := "1234"
 	pid1, pid2 := zkwasm.GetPid(prikey)
 
-	fmt.Println("pid1:", pid1.Int64())
-	fmt.Println("pid2:", pid2.Int64())
+	fmt.Println("pid1:", pid1.Uint64())
+	fmt.Println("pid2:", pid2.Uint64())
 
 	data := zkwasm.Query(prikey)
 	fmt.Println("data:", data)
@@ -36,9 +36,9 @@ func main() {
 	//transaction, _ := zkwamRpc.SendTransaction([4]*big.Int{cmd, big.NewInt(1), big.NewInt(1), big.NewInt(0)}, prikey)
 	//fmt.Println("transaction:", transaction)
 	// 初始化玩家
-	initPlayer(zkwamRpc, prikey)
+	//initPlayer(zkwamRpc, prikey)
 	// 购买宠物
-	buyElf(zkwamRpc, prikey)
+	//buyElf(zkwamRpc, prikey)
 	// 收集金币
 	//collectCoin(zkwamRpc, prikey)
 
@@ -96,7 +96,9 @@ func deposit(zkwamRpc *zkwasm.ZKWasmAppRpc, prikey string) {
 	propType := big.NewInt(89)
 	depositP := new(big.Int).Lsh(ranchId, 32)
 	depositP.Add(depositP, propType)
-	cmd := zkwamRpc.CreateCommand(big.NewInt(0), DepositCmd, big.NewInt(0))
+	nonce, _ := zkwamRpc.GetNonce(prikey)
+	fmt.Println("nonce:", nonce)
+	cmd := zkwamRpc.CreateCommand(nonce, DepositCmd, big.NewInt(0))
 	transaction, _ := zkwamRpc.SendTransaction([4]*big.Int{cmd, pid1, pid2, depositP}, prikey)
 	fmt.Println("transaction:", transaction)
 }
